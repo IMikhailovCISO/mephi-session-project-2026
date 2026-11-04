@@ -1,0 +1,65 @@
+   1  dnf update -y
+   2  dnf install -y dnf-plugins-core nginx libcap-ng-utils acl policycoreutils-python-utils zip unzip openssh-server
+   3  dnf download tcpdump --downloaddir /tmp
+   4  dnf download --resolve tcpdump --downloaddir /tmp
+   5  rm -f /tmp/*.i686.rpm
+   6  rpm -Uvh /tmp/tcpdump-4.99.5-1.red80.x86_64.rpm
+   7  rpm -Uvh /tmp/tcpdump-4.99.5-1.red80.x86_64.rpm 2>&1 | tail -2
+   8  rpm -q tcpdump; ls -l /usr/sbin/tcpdump
+   9  systemctl enable --now nginx 2>&1 | tail -2; systemctl is-active nginx; systemctl is-enabled nginx
+  10  journalctl -u nginx -b > ~/journalctl.out; wc -l ~/journalctl.out
+  11  groupadd -g 5500 team 2>&1; groupadd -g 4444 curators 2>&1; useradd -u 5501 user1 2>&1; useradd -u 5502 user2 2>&1; useradd -u 5503 user3 2>&1; useradd -u 5511 curator1 2>&1; useradd -u 5512 curator2 2>&1; echo users-done
+  12  usermod -aG team user1 user2 user3; usermod -aG curators curator1 curator2; id user1; id curator1
+  13  echo 'user1:Student#265269u1' | chpasswd && echo user1-pw-ok
+  14  echo 'user2:Student#265269u2' | chpasswd && echo user2-pw-ok
+  15  echo 'user3:Student#265269u3' | chpasswd && echo user3-pw-ok
+  16  echo 'curator1:Curator#265269c1' | chpasswd && echo curator1-pw-ok
+  17  echo 'curator2:Curator#265269c2' | chpasswd && echo curator2-pw-ok
+  18  mkdir -p /data/mephi-2026; chown root:team /data/mephi-2026; chmod 2770 /data/mephi-2026; ls -ld /data/mephi-2026
+  19  setfacl -m g:curators:r-x /data/mephi-2026; setfacl -d -m u::rwx,g::rwx,o::---,g:curators:r-x /data/mephi-2026; getfacl /data/mephi-2026
+  20  runuser -u user1 -- bash -c 'echo hi > /data/mephi-2026/f1.txt' && echo W1-OK
+  21  runuser -u user2 -- bash -c 'echo add >> /data/mephi-2026/f1.txt' && echo W2-OK
+  22  runuser -u user3 -- bash -c 'cat /data/mephi-2026/f1.txt' && echo R3-OK
+  23  runuser -u curator1 -- bash -c 'cat /data/mephi-2026/f1.txt' && echo CUR-READ-OK
+  24  runuser -u curator1 -- bash -c 'echo x >> /data/mephi-2026/f1.txt' 2>&1 | head -2
+  25  runuser -u nobody -- bash -c 'cat /data/mephi-2026/f1.txt' 2>&1 | head -2
+  26  getfacl /data/mephi-2026 | tail -8
+  27  ls -l /usr/sbin/tcpdump; chmod u-s /usr/sbin/tcpdump 2>/dev/null; setcap cap_net_raw+ep /usr/sbin/tcpdump; getcap /usr/sbin/tcpdump; filecap /usr/sbin/tcpdump
+  28  nohup bash -c 'ping -c 6 -i 0.4 8.8.8.8 > /dev/null 2>&1' > /dev/null 2>&1 & sleep 1; runuser -u user1 -- timeout 12 /usr/sbin/tcpdump -c 2 2>&1 | tail -3
+  29  getenforce; grep '^SELINUX=' /etc/selinux/config
+  30  sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config; setenforce 1; getenforce
+  31  semanage fcontext -a -t httpd_sys_content_t '/mephi-web(/.*)?' 2>&1; restorecon -Rv /mephi-web 2>&1 | tail -1; ls -dZ /mephi-web
+  32  grep -q curator1 /etc/security/access.conf || { echo '- : curator1 curator2 : LOCAL' >> /etc/security/access.conf; echo '+ : ALL : ALL' >> /etc/security/access.conf; }; tail -2 /etc/security/access.conf
+  33  grep -q pam_access /etc/pam.d/sshd || sed -i '1a account    required    pam_access.so' /etc/pam.d/sshd; grep -q pam_access /etc/pam.d/login || sed -i '1a account    required    pam_access.so' /etc/pam.d/login; grep pam_access /etc/pam.d/sshd /etc/pam.d/login
+  34  grep -qE '^minlen' /etc/security/pwquality.conf || echo 'minlen = 12' >> /etc/security/pwquality.conf; grep '^minlen' /etc/security/pwquality.conf
+  35  sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS   90/' /etc/login.defs; grep '^PASS_MAX_DAYS' /etc/login.defs; chage -M 90 user1 user2 user3 curator1 curator2; chage -l user1 | grep Maximum
+  36  echo user1:short1 | chpasswd 2>&1 | head -2
+  37  echo 'Hello from Student: M265269' > /mephi-web/index.html; chmod 644 /mephi-web/index.html; restorecon -Rv /mephi-web 2>&1 | tail -1
+  38  grep -rn '/usr/share/nginx/html' /etc/nginx/nginx.conf /etc/nginx/conf.d/ 2>/dev/null | head -5
+  39  sed -i 's|/usr/share/nginx/html|/mephi-web|g' /etc/nginx/nginx.conf /etc/nginx/conf.d/default.conf 2>/dev/null; nginx -t 2>&1 | tail -1
+  40  systemctl restart nginx; sleep 1; curl -s http://localhost/
+  41  usermod -aG team user1; usermod -aG team user2; usermod -aG team user3; usermod -aG curators curator1; usermod -aG curators curator2
+  42  id user1; id user2; id user3; id curator1; id curator2
+  43  rm -f /data/mephi-2026/f1.txt
+  44  runuser -u user1 -- bash -c 'echo hi > /data/mephi-2026/f1.txt' && echo W1-OK; ls -l /data/mephi-2026
+  45  runuser -u user2 -- bash -c 'echo add >> /data/mephi-2026/f1.txt' && echo W2-OK
+  46  runuser -u user3 -- bash -c 'cat /data/mephi-2026/f1.txt' && echo R3-OK
+  47  runuser -u curator1 -- bash -c 'cat /data/mephi-2026/f1.txt' && echo CUR-READ-OK
+  48  runuser -u curator1 -- bash -c 'echo x >> /data/mephi-2026/f1.txt' 2>&1 | head -1
+  49  ls -l /data/mephi-2026; getfacl /data/mephi-2026/f1.txt 2>/dev/null
+  50  chage -M 90 user1 && echo user1-chage-90
+  51  chage -M 90 user2 && echo user2-chage-90
+  52  chage -M 90 user3 && echo user3-chage-90
+  53  chage -M 90 curator1 && echo curator1-chage-90
+  54  chage -M 90 curator2 && echo curator2-chage-90
+  55  chage -l user1
+  56  (echo short1; echo short1) | passwd user1 2>&1 | head -4
+  57  dnf history 2>/dev/null | head -8
+  58  sed -i 's/^- : curator1 curator2 : LOCAL/- : curator1 curator2 : ALL/' /etc/security/access.conf
+  59  (echo Student#265269u1; echo short1; echo short1; echo short1) | runuser -u user1 -- passwd
+  60  passwd -S user1
+  61  stat /data/mephi-2026 > ~/stat.out; stat /mephi-web >> ~/stat.out
+  62  getcap /usr/sbin/tcpdump > ~/getcap.out
+  63  getenforce > ~/getenforce.out
+  64  dnf history > ~/dnf.out
+  65  curl -s http://localhost/ > ~/curl.out
